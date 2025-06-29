@@ -1,0 +1,7 @@
+date (Tarikh) | Tarikh | Tarikh dalam format YYYY-MM-DD
+
+premise_code (Kategori) | Kod Premis | Integer yang melambangkan premis, yang perlu dipadankan dengan Jadual Carian Premis. Jadual carian membolehkan anda mendapatkan nama, alamat, daerah, dan negeri bagi setiap premis.
+
+item_code (Kategori) | Kod Barangan | Integer yang melambangkan barangan, yang perlu dipadankan dengan Jadual Carian Barangan. Jadual carian membolehkan anda mendapatkan nama, unit ukuran, dan kategori bagi setiap barang.
+
+price (Apung) | Harga | Harga dalam RM
