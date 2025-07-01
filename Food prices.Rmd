@@ -1,0 +1,205 @@
+---
+title: "Food prices"
+author: '22130975'
+date: "2025-06-24"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+###################LIBRARIES################
+
+#load libraries
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(forecast)
+
+###########DATA PREPROCESSING#############
+
+#read files
+lookup_item = read.csv("lookup_item.csv", header = TRUE)
+price_catcher = read.csv("pricecatcher_2025-05.csv", header = TRUE)
+
+
+
+files <- c("pricecatcher_2024-12.csv", 
+           "pricecatcher_2025-01.csv",
+           "pricecatcher_2025-02.csv",
+           "pricecatcher_2025-03.csv",
+           "pricecatcher_2025-04.csv",
+           "pricecatcher_2025-05.csv",
+           "pricecatcher_2025-06.csv")
+price_data <- lapply(files, read.csv) %>%
+  bind_rows()
+
+
+
+
+#adjust dataframe
+lookup_item_adj = lookup_item[-1,]
+print(lookup_item_adj)
+
+full_working_data = merge(price_data, lookup_item_adj, by = "item_code")
+
+#merge data to by item code
+working_data = merge(price_catcher, lookup_item_adj, by = "item_code")
+
+#check for duplicates
+anyDuplicated(working_data)
+
+# Check missing values for numeric columns
+colSums(is.na(working_data[sapply(working_data, is.numeric)]))
+
+# Check missing values for character variables with "NA" as missing value marker
+apply(working_data, 2, function(col) sum(col == "NA", na.rm = TRUE))
+
+# Format date column so R reads as dates
+working_data$date <- as.Date(working_data$date, format = "%Y-%m-%d")
+full_working_data$date <- as.Date(full_working_data$date, format = "%Y-%m-%d")
+
+#average price by item code, by date
+daily_avg <- working_data %>%
+  group_by(item_category, date) %>%
+  summarise(avg_price = mean(price, na.rm = TRUE))
+
+daily_avg_full <- full_working_data %>%
+  group_by(item_category, date) %>%
+  summarise(avg_price = mean(price, na.rm = TRUE))
+
+#adding average column to working dataframe
+working_data <- working_data %>%
+  left_join(daily_avg, by = c("item_category", "date"))
+
+# Filter only for item_category == "AYAM"
+ayam_data <- daily_avg %>%
+  filter(item_category == "AYAM")
+
+ayam_data_full <- daily_avg_full %>%
+  filter(item_category == "AYAM")
+
+ayam_data_valid <- subset(ayam_data_full, date >= "2022-12-01" & date <= "2025-05-31")
+
+ayam_data_test <- subset(ayam_data_full, date >= "2025-06-01")
+
+daging_data <- daily_avg %>%
+  filter(item_category == "DAGING")
+
+daging_data_full <- daily_avg_full %>%
+  filter(item_category == "DAGING")
+
+daging_data_valid <- subset(daging_data_full, date >= "2022-12-01" & date <= "2025-05-31")
+
+telur_data <- daily_avg %>%
+  filter(item_category == "TELUR")
+
+telur_data_full <- daily_avg_full %>%
+  filter(item_category == "TELUR")
+
+telur_data_valid <- subset(telur_data_full, date >= "2022-12-01" & date <= "2025-05-31")
+
+# Check missing values
+full_dates <- seq(min(ayam_data_valid$date), max(ayam_data_valid$date), by = "day")
+missing_dates <- setdiff(full_dates, ayam_data_valid$date)
+print(missing_dates)
+length(missing_dates)
+
+#############ANALYSIS ON AYAM##############
+
+#Plot Price over Time
+ggplot(data = ayam_data_full, aes(x = date, y = avg_price)) +
+  geom_point(color = "black", size = 1) +
+  geom_line(color = "darkred", size = 1) +
+  geom_smooth(method = "loess", se = FALSE, color = "blue", linetype = "dashed") +
+  labs(title = "Average Price of AYAM Over Time",
+       x = "Date", y = "Average Price (RM)") +
+  scale_x_date(
+    date_breaks = "14 days",                # show every day
+    date_labels = "%d %b"                 # format: 02 May
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank()
+  )
+
+#Check max price
+ayam_data %>%
+  filter(avg_price == max(avg_price))
+
+#Check standard deviation
+sd(ayam_data$avg_price)
+
+#############ANALYSIS ON DAGING##############
+
+#Plot Price oover Time
+ggplot(data = daging_data_full, aes(x = date, y = avg_price)) +
+  geom_point(color = "black", size = 1) +
+  geom_line(color = "darkred", size = 1) +
+  geom_smooth(method = "loess", se = FALSE, color = "blue", linetype = "dashed") +
+  labs(title = "Average Price of DAGING Over Time",
+       x = "Date", y = "Average Price (RM)") +
+  scale_x_date(
+    date_breaks = "14 days",                # show every day
+    date_labels = "%d %b"                 # format: 02 May
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    panel.grid.major = element_line(color = "grey80"),
+    panel.grid.minor = element_blank()
+  )
+
+daging_data_full %>%
+  filter(avg_price == max(avg_price))
+
+daging_data_full %>%
+  filter(avg_price == min(avg_price))
+
+# Plot both on the same graph
+ggplot() +
+  geom_line(data = ayam_data_full, aes(x = date, y = avg_price), color = "red") +
+  geom_line(data = telur_data_full, aes(x = date, y = avg_price), color = "blue") +
+  labs(title = "AYAM vs TELUR Prices", x = "Date", y = "Average Price")
+
+# Convert to time series object
+ayam_ts <- ts(ayam_data_valid$avg_price, frequency = 7)
+
+
+model <- auto.arima(ayam_ts)
+summary(model)
+
+forecast_result <- forecast(model, h = 7)
+plot(forecast_result, main = "7-Day Price Forecast for AYAM")
+
+# Compare predicted vs actual
+forecast_values <- forecast_result$mean
+actual_values <- test_ts
+
+comparison <- data.frame(
+  Date = ayam_data$date[(n-6):n],
+  Actual = as.numeric(actual_values),
+  Forecast = as.numeric(forecast_values)
+)
+
+print(comparison)
+
+
+
+
+
+
+
+
+
+
+```
+
+
